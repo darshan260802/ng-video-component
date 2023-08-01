@@ -1,0 +1,322 @@
+<div
+  class="video-controller-wrapper"
+  #customPlayer
+  (keydown)="isFullscreen ? handleKeybind($event) : null"
+  tabindex="0"
+  [ngStyle]="{ width: width ?? 'inherit' }"
+  (click)="player && metadataReady ? toggleVideo() : null"
+  (contextmenu)="$event.preventDefault()"
+>
+  <video
+    [src]="videoSrc"
+    #player
+    (timeupdate)="(null)"
+    (mousemove)="isFullscreen ? handleFullscreenControls() : null"
+  ></video>
+
+  <!-- Play / Pause Indicator -->
+  <div class="play-indicator indicator" *ngIf="!player.paused">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width="64"
+      height="64"
+    >
+      <path
+        d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM10.6219 8.41459C10.5562 8.37078 10.479 8.34741 10.4 8.34741C10.1791 8.34741 10 8.52649 10 8.74741V15.2526C10 15.3316 10.0234 15.4088 10.0672 15.4745C10.1897 15.6583 10.4381 15.708 10.6219 15.5854L15.5008 12.3328C15.5447 12.3035 15.5824 12.2658 15.6117 12.2219C15.7343 12.0381 15.6846 11.7897 15.5008 11.6672L10.6219 8.41459Z"
+        fill="rgba(255,255,255,1)"
+      ></path>
+    </svg>
+  </div>
+  <div class="pause-indicator indicator" *ngIf="player.paused">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width="64"
+      height="64"
+    >
+      <path
+        d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM9 9V15H11V9H9ZM13 9V15H15V9H13Z"
+        fill="rgba(255,255,255,1)"
+      ></path>
+    </svg>
+  </div>
+  <!-- seek indicator -->
+  <div class="backward indicator" *ngIf="seekIndicator === 'back'">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width="64"
+      height="64"
+    >
+      <path
+        d="M12.001 10.6665L21.2237 4.51811C21.4534 4.36493 21.7639 4.42702 21.917 4.65679C21.9718 4.73892 22.001 4.83542 22.001 4.93414V19.0656C22.001 19.3418 21.7772 19.5656 21.501 19.5656C21.4023 19.5656 21.3058 19.5364 21.2237 19.4816L12.001 13.3332V19.0656C12.001 19.3418 11.7772 19.5656 11.501 19.5656C11.4023 19.5656 11.3058 19.5364 11.2237 19.4816L0.625047 12.4159C0.395282 12.2627 0.333196 11.9523 0.486372 11.7225C0.522989 11.6676 0.570121 11.6205 0.625047 11.5839L11.2237 4.51811C11.4534 4.36493 11.7639 4.42702 11.917 4.65679C11.9718 4.73892 12.001 4.83542 12.001 4.93414V10.6665Z"
+        fill="rgba(255,255,255,1)"
+      ></path>
+    </svg>
+  </div>
+  <div class="forward indicator" *ngIf="seekIndicator === 'fourth'">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width="64"
+      height="64"
+    >
+      <path
+        d="M12 13.3332L2.77735 19.4816C2.54759 19.6348 2.23715 19.5727 2.08397 19.3429C2.02922 19.2608 2 19.1643 2 19.0656V4.93408C2 4.65794 2.22386 4.43408 2.5 4.43408C2.59871 4.43408 2.69522 4.4633 2.77735 4.51806L12 10.6665V4.93408C12 4.65794 12.2239 4.43408 12.5 4.43408C12.5987 4.43408 12.6952 4.4633 12.7774 4.51806L23.376 11.5838C23.6057 11.737 23.6678 12.0474 23.5146 12.2772C23.478 12.3321 23.4309 12.3792 23.376 12.4158L12.7774 19.4816C12.5476 19.6348 12.2372 19.5727 12.084 19.3429C12.0292 19.2608 12 19.1643 12 19.0656V13.3332Z"
+        fill="rgba(255,255,255,1)"
+      ></path>
+    </svg>
+  </div>
+
+  <div
+    class="controls-wrapper"
+    [ngClass]="{ 'force-hide': forceHideControls }"
+    *ngIf="player && metadataReady"
+    (click)="$event.stopPropagation()"
+  >
+    <!-- Seekbar -->
+    <ng-container>
+      <div class="seekbar">
+        <input
+          type="range"
+          [(ngModel)]="player.currentTime"
+          [min]="0"
+          [max]="player.duration"
+          step="any"
+          [ngStyle]="{
+            '--track-width': (player.currentTime * 100) / player.duration + '%'
+          }"
+        />
+      </div>
+    </ng-container>
+    <!-- controls -->
+    <ng-container>
+      <div class="controls">
+        <div class="left-panel">
+          <!-- Play/Pause -->
+          <div class="play-pause pointer">
+            <ng-container *ngIf="player.paused">
+              <div (click)="playVideo()">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                >
+                  <path
+                    d="M19.376 12.4158L8.77735 19.4816C8.54759 19.6348 8.23715 19.5727 8.08397 19.3429C8.02922 19.2608 8 19.1643 8 19.0656V4.93408C8 4.65794 8.22386 4.43408 8.5 4.43408C8.59871 4.43408 8.69522 4.4633 8.77735 4.51806L19.376 11.5838C19.6057 11.737 19.6678 12.0474 19.5146 12.2772C19.478 12.3321 19.4309 12.3792 19.376 12.4158Z"
+                    fill="#fff"
+                  ></path>
+                </svg>
+              </div>
+            </ng-container>
+            <ng-container *ngIf="!player.paused">
+              <div (click)="pauseVideo()">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                >
+                  <path d="M6 5H8V19H6V5ZM16 5H18V19H16V5Z" fill="#fff"></path>
+                </svg>
+              </div>
+            </ng-container>
+          </div>
+
+          <!-- fast seek -->
+          <div class="fast-seek">
+            <div
+              class="backward"
+              (click)="seekVideo(player.currentTime - 10, 'back')"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+              >
+                <path
+                  d="M12 2C17.5228 2 22 6.47715 22 12 22 17.5228 17.5228 22 12 22 6.47715 22 2 17.5228 2 12H4C4 16.4183 7.58172 20 12 20 16.4183 20 20 16.4183 20 12 20 7.58172 16.4183 4 12 4 9.25022 4 6.82447 5.38734 5.38451 7.50024L8 7.5V9.5H2V3.5H4L3.99989 5.99918C5.82434 3.57075 8.72873 2 12 2ZM15.5 13.25C15.5 13.8023 15.0523 14.25 14.5 14.25 13.9477 14.25 13.5 13.8023 13.5 13.25V10.75C13.5 10.1977 13.9477 9.75 14.5 9.75 15.0523 9.75 15.5 10.1977 15.5 10.75V13.25ZM14.5 8.25C13.1193 8.25 12 9.36929 12 10.75V13.25C12 14.6307 13.1193 15.75 14.5 15.75 15.8807 15.75 17 14.6307 17 13.25V10.75C17 9.36929 15.8807 8.25 14.5 8.25ZM8.5 15.5V8.5H10V15.5H8.5Z"
+                  fill="rgba(255,255,255,1)"
+                ></path>
+              </svg>
+            </div>
+            <div
+              class="forward"
+              (click)="seekVideo(player.currentTime + 10, 'fourth')"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+              >
+                <path
+                  d="M12 2C6.47715 2 2 6.47715 2 12 2 17.5228 6.47715 22 12 22 17.5228 22 22 17.5228 22 12H20C20 16.4183 16.4183 20 12 20 7.58172 20 4 16.4183 4 12 4 7.58172 7.58172 4 12 4 14.7498 4 17.1755 5.38734 18.6155 7.50024L16 7.5V8.74982C15.5822 8.43597 15.0628 8.25 14.5 8.25 13.1193 8.25 12 9.36929 12 10.75V13.25C12 14.6307 13.1193 15.75 14.5 15.75 15.8807 15.75 17 14.6307 17 13.25V10.75C17 10.2946 16.8783 9.86772 16.6655 9.5H22V3.5H20L20.0001 5.99918C18.1757 3.57075 15.2713 2 12 2ZM15.5 10.75V13.25C15.5 13.8023 15.0523 14.25 14.5 14.25 13.9477 14.25 13.5 13.8023 13.5 13.25V10.75C13.5 10.1977 13.9477 9.75 14.5 9.75 15.0523 9.75 15.5 10.1977 15.5 10.75ZM10 8.5H8.5V15.5H10V8.5Z"
+                  fill="rgba(255,255,255,1)"
+                ></path>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Timing -->
+          <div class="timing">
+            <span [innerText]="formatTime(player.currentTime)"></span>
+            <span>/</span>
+            <span [innerText]="formatTime(player.duration)"></span>
+          </div>
+          <!-- volume -->
+          <div class="volume">
+            <div class="pointer" (click)="volumeToggle(volSlider)">
+              <div class="mute" *ngIf="player.volume === 0">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                >
+                  <path
+                    d="M5.88889 16.0001H2C1.44772 16.0001 1 15.5524 1 15.0001V9.00007C1 8.44778 1.44772 8.00007 2 8.00007H5.88889L11.1834 3.66821C11.3971 3.49335 11.7121 3.52485 11.887 3.73857C11.9601 3.8279 12 3.93977 12 4.05519V19.9449C12 20.2211 11.7761 20.4449 11.5 20.4449C11.3846 20.4449 11.2727 20.405 11.1834 20.3319L5.88889 16.0001ZM20.4142 12.0001L23.9497 15.5356L22.5355 16.9498L19 13.4143L15.4645 16.9498L14.0503 15.5356L17.5858 12.0001L14.0503 8.46454L15.4645 7.05032L19 10.5859L22.5355 7.05032L23.9497 8.46454L20.4142 12.0001Z"
+                    fill="rgba(255,255,255,1)"
+                  ></path>
+                </svg>
+              </div>
+              <div
+                class="low"
+                *ngIf="player.volume > 0 && player.volume <= 0.5"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                >
+                  <path
+                    d="M8.88889 16.0001H5C4.44772 16.0001 4 15.5524 4 15.0001V9.00007C4 8.44778 4.44772 8.00007 5 8.00007H8.88889L14.1834 3.66821C14.3971 3.49335 14.7121 3.52485 14.887 3.73857C14.9601 3.8279 15 3.93977 15 4.05519V19.9449C15 20.2211 14.7761 20.4449 14.5 20.4449C14.3846 20.4449 14.2727 20.405 14.1834 20.3319L8.88889 16.0001ZM18.8631 16.5911L17.4411 15.1691C18.3892 14.4376 19 13.2902 19 12.0001C19 10.5697 18.2493 9.31476 17.1203 8.60766L18.5589 7.16906C20.0396 8.26166 21 10.0187 21 12.0001C21 13.8422 20.1698 15.4905 18.8631 16.5911Z"
+                    fill="rgba(255,255,255,1)"
+                  ></path>
+                </svg>
+              </div>
+              <div class="low" *ngIf="player.volume > 0.5">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  width="16"
+                  height="16"
+                >
+                  <path
+                    d="M2 16.0001H5.88889L11.1834 20.3319C11.2727 20.405 11.3846 20.4449 11.5 20.4449C11.7761 20.4449 12 20.2211 12 19.9449V4.05519C12 3.93977 11.9601 3.8279 11.887 3.73857C11.7121 3.52485 11.3971 3.49335 11.1834 3.66821L5.88889 8.00007H2C1.44772 8.00007 1 8.44778 1 9.00007V15.0001C1 15.5524 1.44772 16.0001 2 16.0001ZM23 12C23 15.292 21.5539 18.2463 19.2622 20.2622L17.8445 18.8444C19.7758 17.1937 21 14.7398 21 12C21 9.26016 19.7758 6.80629 17.8445 5.15557L19.2622 3.73779C21.5539 5.75368 23 8.70795 23 12ZM18 12C18 10.0883 17.106 8.38548 15.7133 7.28673L14.2842 8.71584C15.3213 9.43855 16 10.64 16 12C16 13.36 15.3213 14.5614 14.2842 15.2841L15.7133 16.7132C17.106 15.6145 18 13.9116 18 12Z"
+                    fill="rgba(255,255,255,1)"
+                  ></path>
+                </svg>
+              </div>
+            </div>
+            <div class="vol-slide pointer">
+              <input
+                type="range"
+                [(ngModel)]="player.volume"
+                step="any"
+                class="pointer"
+                [min]="0"
+                [max]="1"
+                #volSlider
+                [ngStyle]="{
+                  '--vol-track-width': player.volume * 100 + '%'
+                }"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Right -->
+        <div class="right-panel">
+          <!-- Playback speed -->
+          <div class="playback" tabindex="0" #speedDiv>
+            <span class="selected-speed pointer" tabindex="0">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+              >
+                <path
+                  d="M20 13C20 15.2091 19.1046 17.2091 17.6569 18.6569L19.0711 20.0711C20.8807 18.2614 22 15.7614 22 13 22 7.47715 17.5228 3 12 3 6.47715 3 2 7.47715 2 13 2 15.7614 3.11929 18.2614 4.92893 20.0711L6.34315 18.6569C4.89543 17.2091 4 15.2091 4 13 4 8.58172 7.58172 5 12 5 16.4183 5 20 8.58172 20 13ZM15.293 8.29297 10.793 12.793 12.2072 14.2072 16.7072 9.70718 15.293 8.29297Z"
+                  fill="rgba(255,255,255,1)"
+                ></path>
+              </svg>
+            </span>
+            <div class="speeds-dropdown">
+              <div class="title">
+                <span>Playback Speed</span>
+                <span class="pointer" (click)="speedDiv.blur()">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    width="12"
+                    height="12"
+                  >
+                    <path
+                      d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM12 10.5858L9.17157 7.75736L7.75736 9.17157L10.5858 12L7.75736 14.8284L9.17157 16.2426L12 13.4142L14.8284 16.2426L16.2426 14.8284L13.4142 12L16.2426 9.17157L14.8284 7.75736L12 10.5858Z"
+                    ></path>
+                  </svg>
+                </span>
+              </div>
+              <ng-container *ngFor="let speed of [0.5, 0.75, 1, 1.5, 2]">
+                <span
+                  class="speed"
+                  (click)="speedDiv.blur(); player.playbackRate = speed"
+                >
+                  {{ speed + "x" }}
+                  <span *ngIf="player.playbackRate === speed"
+                    ><svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      width="12"
+                      height="12"
+                    >
+                      <path
+                        d="M10.0007 15.1709L19.1931 5.97852L20.6073 7.39273L10.0007 17.9993L3.63672 11.6354L5.05093 10.2212L10.0007 15.1709Z"
+                        fill="#ff2525"
+                      ></path></svg
+                  ></span>
+                </span>
+              </ng-container>
+            </div>
+          </div>
+
+          <!-- Fullscreen -->
+          <div class="fullscreen" (click)="toggleFullscreen(customPlayer)">
+            <div class="full" *ngIf="!isFullscreen">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+              >
+                <path
+                  d="M8 3V5H4V9H2V3H8ZM2 21V15H4V19H8V21H2ZM22 21H16V19H20V15H22V21ZM22 9H20V5H16V3H22V9Z"
+                  fill="rgba(255,255,255,1)"
+                ></path>
+              </svg>
+            </div>
+            <div class="no-full" *ngIf="isFullscreen">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                width="16"
+                height="16"
+              >
+                <path
+                  d="M18 7H22V9H16V3H18V7ZM8 9H2V7H6V3H8V9ZM18 17V21H16V15H22V17H18ZM8 15V21H6V17H2V15H8Z"
+                  fill="rgba(255,255,255,1)"
+                ></path>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </div>
+</div>
